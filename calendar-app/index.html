@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wall Calendar · Premium Interactive</title>
+  <meta name="description" content="A premium interactive wall calendar with day-range selector, notes, holiday markers, and month-based themes." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       DESIGN TOKENS
+    ============================================================ */
+    :root {
+      --accent:        #1a8fe3;
+      --accent-rgb:    26, 143, 227;
+      --accent-light:  #5bb8ff;
+      --accent-glow:   rgba(26,143,227,0.35);
+      --accent-muted:  rgba(26,143,227,0.12);
+      --text-primary:  #0d1117;
+      --text-secondary:#4a5568;
+      --text-muted:    #a0aec0;
+      --bg-page:       #dde1e9;
+      --bg-card:       #ffffff;
+      --bg-notes:      #f8f9fc;
+      --border-subtle: rgba(0,0,0,0.06);
+      --shadow-card:
+        0 2px 4px rgba(0,0,0,0.04),
+        0 8px 32px rgba(0,0,0,0.1),
+        0 32px 64px rgba(0,0,0,0.14),
+        0 0 0 1px rgba(255,255,255,0.6) inset;
+      --shadow-hover:  0 4px 12px rgba(var(--accent-rgb),0.25);
+      --radius-card:   16px;
+      --radius-day:    10px;
+      --font-ui:       'DM Sans', 'Inter', sans-serif;
+      --font-display:  'Playfair Display', serif;
+      --transition:    0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── DARK ── */
+    [data-theme="dark"] {
+      --text-primary:  #e8eaf0;
+      --text-secondary:#94a3b8;
+      --text-muted:    #4a5568;
+      --bg-page:       #080c14;
+      --bg-card:       #111827;
+      --bg-notes:      #0d1421;
+      --border-subtle: rgba(255,255,255,0.06);
+      --shadow-card:
+        0 2px 4px rgba(0,0,0,0.3),
+        0 8px 32px rgba(0,0,0,0.5),
+        0 32px 64px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255,255,255,0.04) inset;
+    }
+
+    /* ============================================================
+       RESET
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg-page);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 40px 16px 60px;
+      transition: background 0.5s ease;
+      position: relative;
+    }
+    /* Subtle mesh gradient bg */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 20% 20%, rgba(var(--accent-rgb),0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 40% at 80% 80%, rgba(var(--accent-rgb),0.05) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body > * { position: relative; z-index: 1; }
+
+    /* ============================================================
+       PAGE HEADER
+    ============================================================ */
+    .page-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .page-header h1 {
+      font-family: var(--font-display);
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      transition: color 0.4s;
+    }
+    .page-header p {
+      margin-top: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* ============================================================
+       TOOLBAR
+    ============================================================ */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 28px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 40px;
+      border: 1.5px solid var(--border-subtle);
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 0 var(--accent-glow);
+      letter-spacing: 0.01em;
+    }
+    .toolbar-btn:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .toolbar-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    /* ============================================================
+       CALENDAR WRAPPER (perspective)
+    ============================================================ */
+    .calendar-perspective {
+      perspective: 1400px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* ============================================================
+       CARD
+    ============================================================ */
+    .calendar-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+      transform-origin: top center;
+      transition: background 0.5s ease, box-shadow 0.5s ease;
+    }
+    /* Page-flip animation */
+    .calendar-card.flipping-out { animation: pgFlipOut 0.28s cubic-bezier(0.55,0,1,0.45) forwards; }
+    .calendar-card.flipping-in  { animation: pgFlipIn  0.28s cubic-bezier(0,0.55,0.45,1) forwards; }
+    @keyframes pgFlipOut {
+      from { transform: rotateX(0deg) scale(1); opacity: 1; }
+      to   { transform: rotateX(-90deg) scale(0.96); opacity: 0; }
+    }
+    @keyframes pgFlipIn {
+      from { transform: rotateX(90deg) scale(0.96); opacity: 0; }
+      to   { transform: rotateX(0deg) scale(1); opacity: 1; }
+    }
+
+    /* ============================================================
+       SPIRAL BINDING
+    ============================================================ */
+    .spiral-bar {
+      height: 32px;
+      background: linear-gradient(180deg, #c5c8d2 0%, #d8dce6 60%, #bfc3cc 100%);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      gap: 0;
+      overflow: visible;
+      z-index: 10;
+    }
+    [data-theme="dark"] .spiral-bar {
+      background: linear-gradient(180deg, #1e2535 0%, #252d40 60%, #1a2030 100%);
+    }
+    .spiral-bar::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: rgba(0,0,0,0.1);
+    }
+    .coil {
+      width: 20px;
+      height: 24px;
+      border: 2.5px solid #999ab0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #e8eaf0, #b8bcc8);
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+      margin: 0 3.5px;
+      box-shadow:
+        inset 0 1px 3px rgba(255,255,255,0.6),
+        inset 0 -1px 2px rgba(0,0,0,0.15),
+        0 1px 3px rgba(0,0,0,0.2);
+    }
+    [data-theme="dark"] .coil {
+      border-color: #3a4060;
+      background: radial-gradient(circle at 35% 35%, #2a3350, #1a2038);
+    }
+
+    /* ============================================================
+       HERO SECTION
+    ============================================================ */
+    .hero-section {
+      position: relative;
+      height: 280px;
+      overflow: hidden;
+    }
+    .hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 40%;
+      display: block;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      transform: scale(1.02);
+    }
+    .hero-img.loaded { opacity: 1; transform: scale(1); }
+    .hero-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #d8dce8 25%, #e8ecf4 50%, #d8dce8 75%);
+      background-size: 400% 100%;
+      animation: shimmer 1.6s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* Dark gradient overlay on hero */
+    .hero-gradient {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.05) 0%,
+        rgba(0,0,0,0.0) 30%,
+        rgba(0,0,0,0.15) 60%,
+        rgba(0,0,0,0.35) 100%
+      );
+      pointer-events: none;
+    }
+
+    /* Diagonal wave overlay */
+    .hero-wave {
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+    }
+
+    /* Month & Year label */
+    .hero-month-block {
+      position: absolute;
+      bottom: 58px;
+      right: 28px;
+      text-align: right;
+      z-index: 3;
+      filter: drop-shadow(0 2px 12px rgba(0,0,0,0.4));
+    }
+    .hero-year {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.25em;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .hero-month-name {
+      font-family: var(--font-ui);
+      font-size: 36px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    /* Nav buttons */
+    .nav-btn {
+      position: absolute;
+      top: 14px;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(8px) saturate(1.5);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      font-size: 18px;
+      line-height: 1;
+      transition: all var(--transition);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .nav-btn:hover {
+      background: rgba(255,255,255,0.32);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      transform: scale(1.08);
+    }
+    .nav-btn.prev { left: 14px; }
+    .nav-btn.next { right: 14px; }
+
+    /* ============================================================
+       LOWER SECTION
+    ============================================================ */
+    .lower-section {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+    }
+
+    /* ============================================================
+       NOTES PANEL
+    ============================================================ */
+    .notes-panel {
+      background: var(--bg-notes);
+      border-right: 1px solid var(--border-subtle);
+      padding: 18px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: background 0.4s;
+    }
+    /* Month context block */
+    .notes-month-ctx {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .notes-month-name {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+    .notes-month-year {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .notes-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 2px 0;
+    }
+    .notes-row-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .notes-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .notes-icon {
+      font-size: 13px;
+      opacity: 0.35;
+    }
+    /* Timestamp */
+    .notes-ts-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+    .notes-ts {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      font-variant-numeric: tabular-nums;
+    }
+    .notes-ts-empty {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      font-style: italic;
+      opacity: 0.6;
+    }
+
+    /* Selected range badge */
+    .range-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.01em;
+      box-shadow: 0 2px 8px var(--accent-glow);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .range-badge:hover {
+      transform: scale(1.04);
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    /* Lined textarea */
+    .notes-textarea-wrap {
+      flex: 1;
+      position: relative;
+    }
+    .notes-textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 190px;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 26px;
+      color: var(--text-primary);
+      background: transparent;
+      caret-color: var(--accent);
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 25px,
+        rgba(0,0,0,0.065) 25px,
+        rgba(0,0,0,0.065) 26px
+      );
+      background-position: 0 26px;
+      transition: color 0.3s;
+    }
+    [data-theme="dark"] .notes-textarea {
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 25px,
+        rgba(255,255,255,0.07) 25px,
+        rgba(255,255,255,0.07) 26px
+      );
+    }
+    .notes-textarea::placeholder { color: var(--text-muted); font-style: italic; }
+    .notes-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .notes-char {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .notes-save-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .notes-save-dot.visible { opacity: 1; }
+
+    /* ============================================================
+       GRID PANEL
+    ============================================================ */
+    .grid-panel {
+      padding: 18px 16px 20px 12px;
+    }
+
+    /* Day headers */
+    .day-headers {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 6px;
+      padding: 0 2px;
+    }
+    .day-header {
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      padding: 4px 0 6px;
+      border-bottom: 1.5px solid var(--border-subtle);
+    }
+    .day-header.wknd { color: var(--accent); }
+
+    /* Calendar grid */
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      column-gap: 0;
+      row-gap: 4px;
+      padding: 8px 0 2px;
+    }
+
+    /* Day cells */
+    .day-cell {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-day);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      position: relative;
+      transition:
+        background var(--transition),
+        color var(--transition),
+        transform 0.12s ease,
+        box-shadow var(--transition);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .day-cell:hover:not(.dimmed):not(.start-date):not(.end-date) {
+      background: var(--accent-muted);
+      transform: scale(1.14);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .day-cell.dimmed {
+      color: var(--text-muted);
+      opacity: 0.45;
+      cursor: default;
+      font-size: 11px;
+    }
+    .day-cell.today:not(.start-date):not(.end-date) {
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
+    .day-cell.wknd-day:not(.in-range):not(.start-date):not(.end-date) {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Range: in-between */
+    .day-cell.in-range {
+      background: var(--accent-muted) !important;
+      color: var(--accent) !important;
+      border-radius: 0 !important;
+      font-weight: 600;
+    }
+    .day-cell.hover-in-range {
+      background: rgba(var(--accent-rgb), 0.07) !important;
+      color: var(--accent) !important;
+      border-radius: 0 !important;
+    }
+
+    /* Range: start pill */
+    .day-cell.start-date {
+      background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+      color: #fff !important;
+      border-radius: 10px 0 0 10px !important;
+      box-shadow: 0 2px 12px var(--accent-glow) !important;
+      font-weight: 700;
+      z-index: 2;
+    }
+    /* Range: end pill */
+    .day-cell.end-date {
+      background: linear-gradient(135deg, var(--accent-light), var(--accent)) !important;
+      color: #fff !important;
+      border-radius: 0 10px 10px 0 !important;
+      box-shadow: 0 2px 12px var(--accent-glow) !important;
+      font-weight: 700;
+      z-index: 2;
+    }
+    /* When start == end: full pill */
+    .day-cell.start-date.end-date {
+      border-radius: 10px !important;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+      box-shadow: 0 4px 18px var(--accent-glow) !important;
+      transform: scale(1.08);
+    }
+
+    /* Holiday indicator */
+    .holiday-dot {
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3.5px;
+      height: 3.5px;
+      border-radius: 50%;
+      background: #f87171;
+    }
+    .start-date .holiday-dot,
+    .end-date .holiday-dot { background: rgba(255,255,255,0.7); }
+
+    /* Holiday tooltip */
+    .hol-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: rgba(15,20,35,0.9);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s, transform 0.18s;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .hol-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: rgba(15,20,35,0.9);
+    }
+    .day-cell:hover .hol-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ============================================================
+       ACCENT STRIPE (bottom footer bar)
+    ============================================================ */
+    .accent-stripe {
+      height: 5px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 50%, var(--accent) 100%);
+      background-size: 200% 100%;
+      animation: stripeShift 4s linear infinite;
+    }
+    @keyframes stripeShift {
+      0%   { background-position: 0% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* ============================================================
+       STATUS BAR (below card)
+    ============================================================ */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      min-height: 28px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      transition: all 0.3s ease;
+      animation: pillIn 0.3s ease;
+    }
+    @keyframes pillIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .status-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.6s ease infinite;
+    }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.35); opacity: 0.6; }
+    }
+    .clear-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--font-ui);
+      transition: all var(--transition);
+    }
+    .clear-pill:hover {
+      border-color: #f87171;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+    }
+
+    /* Holiday legend */
+    .legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; background: #f87171; display: inline-block; }
+
+    /* ============================================================
+       RESPONSIVE — MOBILE
+    ============================================================ */
+    @media (max-width: 620px) {
+      body { padding: 20px 8px 40px; }
+      .page-header h1 { font-size: 1.45rem; }
+      .hero-section { height: 210px; }
+      .hero-month-name { font-size: 26px; }
+      .hero-month-block { bottom: 48px; right: 18px; }
+      .lower-section { grid-template-columns: 1fr; }
+      .notes-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 16px 16px 14px;
+      }
+      .notes-textarea { min-height: 100px; }
+      .grid-panel { padding: 14px 10px 16px 8px; }
+      .day-cell { font-size: 11px; border-radius: 8px; }
+      .day-header { font-size: 8.5px; }
+      .coil { width: 17px; height: 20px; margin: 0 2.5px; }
+      .hero-month-name { font-size: 22px; }
+      .hero-wave svg { height: 44px; }
+    }
+    @media (max-width: 380px) {
+      .day-cell { font-size: 10px; }
+      .days-grid { gap: 2px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app-root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ─────────────────────────────────────────────────────
+   STATIC DATA
+───────────────────────────────────────────────────── */
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS_SHORT = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+
+const MONTH_ACCENTS = [
+  { c:'#1a8fe3', l:'#5bb8ff' }, // Jan
+  { c:'#d96ba0', l:'#f4a7c9' }, // Feb
+  { c:'#16a34a', l:'#4ade80' }, // Mar
+  { c:'#d97706', l:'#fbbf24' }, // Apr
+  { c:'#7c3aed', l:'#a78bfa' }, // May
+  { c:'#0891b2', l:'#22d3ee' }, // Jun
+  { c:'#dc2626', l:'#f87171' }, // Jul
+  { c:'#ea580c', l:'#fb923c' }, // Aug
+  { c:'#059669', l:'#34d399' }, // Sep
+  { c:'#b45309', l:'#f59e0b' }, // Oct
+  { c:'#6d28d9', l:'#8b5cf6' }, // Nov
+  { c:'#0369a1', l:'#38bdf8' }, // Dec
+];
+
+// Curated Unsplash photos per month
+const HERO_PHOTOS = [
+  'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=900&h=290&q=75', // Jan snow
+  'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=900&h=290&q=75', // Feb forest
+  'https://images.unsplash.com/photo-1490750967868-88df5691cc61?auto=format&fit=crop&w=900&h=290&q=75', // Mar blooms
+  'https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?auto=format&fit=crop&w=900&h=290&q=75', // Apr green
+  'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=900&h=290&q=75', // May meadow
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&h=290&q=75', // Jun beach
+  'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&h=290&q=75', // Jul lake
+  'https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?auto=format&fit=crop&w=900&h=290&q=75', // Aug golden
+  'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&h=290&q=75', // Sep autumn
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&h=290&q=75', // Oct fall
+  'https://images.unsplash.com/photo-1477414956660-00f5e6dcc0f4?auto=format&fit=crop&w=900&h=290&q=75', // Nov mist
+  'https://images.unsplash.com/photo-1418985991508-e47386d96a71?auto=format&fit=crop&w=900&h=290&q=75', // Dec village
+];
+
+const HOLIDAYS = {
+  '1-1' : "New Year's Day",
+  '2-14': 'Valentine\'s Day',
+  '3-17': 'St. Patrick\'s Day',
+  '4-22': 'Earth Day',
+  '5-1' : 'Labour Day',
+  '6-21': 'Summer Solstice',
+  '7-4' : 'Independence Day',
+  '8-15': 'Assumption Day',
+  '10-31': 'Halloween',
+  '11-11': 'Veterans Day',
+  '12-25': 'Christmas Day',
+  '12-31': "New Year's Eve",
+};
+
+/* ─────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────── */
+const daysInMonth  = (y,m) => new Date(y, m+1, 0).getDate();
+const startWeekday = (y,m) => { const d = new Date(y,m,1).getDay(); return d===0?6:d-1; };
+const dateKey      = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const parseKey     = k => { if(!k) return null; const [y,mo,d]=k.split('-').map(Number); return {year:y,month:mo-1,day:d}; };
+const keyToMs      = k => { const p=parseKey(k); return p ? new Date(p.year,p.month,p.day).getTime() : 0; };
+const isBetween    = (k,s,e) => { const d=keyToMs(k),a=keyToMs(s),b=keyToMs(e); return d>Math.min(a,b) && d<Math.max(a,b); };
+
+function formatRange(s, e) {
+  if (!s) return null;
+  const sp = parseKey(s), ep = e ? parseKey(e) : null;
+  const sm = MONTHS[sp.month].slice(0,3);
+  if (!ep) return `${sm} ${sp.day}`;
+  const em = MONTHS[ep.month].slice(0,3);
+  if (sp.month === ep.month) return `${sm} ${sp.day} – ${ep.day}`;
+  return `${sm} ${sp.day} – ${em} ${ep.day}`;
+}
+
+function ls(key, fallback='') {
+  try { const v = localStorage.getItem(key); return v !== null ? v : fallback; } catch { return fallback; }
+}
+function lsSet(key, val) { try { localStorage.setItem(key, val); } catch {} }
+
+/* ─────────────────────────────────────────────────────
+   SPIRAL BAR
+───────────────────────────────────────────────────── */
+function SpiralBar() {
+  return (
+    <div className="spiral-bar" aria-hidden="true">
+      {Array.from({length: 28}, (_,i) => <div key={i} className="coil" />)}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   HERO SECTION
+───────────────────────────────────────────────────── */
+function HeroSection({ month, year, accent, onPrev, onNext }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  useEffect(() => { setImgLoaded(false); }, [month]);
+
+  return (
+    <div className="hero-section">
+      {/* Shimmer placeholder */}
+      {!imgLoaded && <div className="hero-shimmer" />}
+
+      {/* Hero image */}
+      <img
+        src={HERO_PHOTOS[month]}
+        alt={`${MONTHS[month]} landscape`}
+        className={`hero-img${imgLoaded ? ' loaded' : ''}`}
+        style={{ position: 'absolute', top: 0, left: 0 }}
+        onLoad={() => setImgLoaded(true)}
+        loading="lazy"
+      />
+
+      {/* Dark gradient */}
+      <div className="hero-gradient" />
+
+      {/* Diagonal wave at bottom */}
+      <div className="hero-wave">
+        <svg viewBox="0 0 900 60" width="100%" height="56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="0,60 330,0 900,60" fill={accent.c} opacity="0.9" />
+          <polygon points="0,60 900,5 900,60" fill={accent.c} opacity="0.75" />
+          <polygon points="0,60 0,35 380,60" fill={accent.c} opacity="0.5" />
+        </svg>
+      </div>
+
+      {/* Month label */}
+      <div className="hero-month-block">
+        <div className="hero-year">{year}</div>
+        <div className="hero-month-name">{MONTHS[month].toUpperCase()}</div>
+      </div>
+
+      {/* Nav buttons */}
+      <button id="btn-prev" className="nav-btn prev" onClick={onPrev} aria-label="Previous month">‹</button>
+      <button id="btn-next" className="nav-btn next" onClick={onNext} aria-label="Next month">›</button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   NOTES PANEL
+───────────────────────────────────────────────────── */
+function NotesPanel({ year, month, rangeStart, rangeEnd, onClear }) {
+  const storageKey    = `cal-note-${year}-${month}`;
+  const tsKey         = `cal-note-ts-${year}-${month}`;
+  const [text, setText]     = useState(() => ls(storageKey));
+  const [saved, setSaved]   = useState(false);
+  const [savedAt, setSavedAt] = useState(() => ls(tsKey));
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setText(ls(storageKey));
+    setSavedAt(ls(tsKey));
+  }, [storageKey, tsKey]);
+
+  function handleChange(e) {
+    const v  = e.target.value;
+    const ts = new Date().toLocaleString('en-IN', {
+      day:'2-digit', month:'short', year:'numeric',
+      hour:'2-digit', minute:'2-digit', hour12:true
+    });
+    setText(v);
+    lsSet(storageKey, v);
+    lsSet(tsKey, ts);
+    setSavedAt(ts);
+    clearTimeout(timerRef.current);
+    setSaved(true);
+    timerRef.current = setTimeout(() => setSaved(false), 2000);
+  }
+
+  const rangeLabel = formatRange(rangeStart, rangeEnd);
+
+  return (
+    <div className="notes-panel">
+      {/* Month context header */}
+      <div className="notes-month-ctx">
+        <div className="notes-month-name">{MONTHS[month]}</div>
+        <div className="notes-month-year">{year}</div>
+      </div>
+
+      <div className="notes-divider" />
+
+      <div className="notes-row-label">
+        <span className="notes-label">NOTES</span>
+        <span className="notes-icon">✏️</span>
+      </div>
+
+      {rangeLabel && (
+        <button id="range-badge" className="range-badge" onClick={onClear} title="Click to clear selection">
+          📅 {rangeLabel} ✕
+        </button>
+      )}
+
+      <div className="notes-textarea-wrap">
+        <textarea
+          id="notes-textarea"
+          className="notes-textarea"
+          value={text}
+          onChange={handleChange}
+          placeholder={`Jot something down for ${MONTHS[month]}…`}
+          aria-label="Monthly calendar notes"
+          maxLength={600}
+        />
+      </div>
+
+      <div className="notes-footer">
+        <div className="notes-ts-wrap">
+          {savedAt ? (
+            <span className="notes-ts" title="Last saved">
+              🕐 {savedAt}
+            </span>
+          ) : (
+            <span className="notes-ts-empty">No notes saved yet</span>
+          )}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span className="notes-char">{text.length}/600</span>
+          <div className={`notes-save-dot${saved ? ' visible' : ''}`} title="Saved" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   DATE GRID
+───────────────────────────────────────────────────── */
+function DateGrid({ year, month, rangeStart, rangeEnd, onDateClick, onDateHover, hoverDate }) {
+  const now     = new Date();
+  const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+  const dim      = daysInMonth(year, month);
+  const offset   = startWeekday(year, month);
+
+  const prevM = month-1<0 ? 11 : month-1;
+  const prevY = month-1<0 ? year-1 : year;
+  const nextM = month+1>11 ? 0 : month+1;
+  const nextY = month+1>11 ? year+1 : year;
+  const prevDim = daysInMonth(prevY, prevM);
+
+  // Build cells array
+  const cells = [];
+  for (let i = offset-1; i >= 0; i--) {
+    cells.push({ day: prevDim-i, key: dateKey(prevY, prevM, prevDim-i), dim: true });
+  }
+  for (let d = 1; d <= dim; d++) {
+    cells.push({ day: d, key: dateKey(year, month, d), dim: false });
+  }
+  const fill = Math.ceil(cells.length/7)*7 - cells.length;
+  for (let d = 1; d <= fill; d++) {
+    cells.push({ day: d, key: dateKey(nextY, nextM, d), dim: true });
+  }
+
+  // Effective end for hover preview
+  const effEnd = rangeStart && !rangeEnd && hoverDate ? hoverDate : rangeEnd;
+
+  function getHoliday(k) {
+    const p = parseKey(k); if (!p) return null;
+    return HOLIDAYS[`${p.month+1}-${p.day}`] || null;
+  }
+
+  return (
+    <div className="grid-panel">
+      {/* Column headers */}
+      <div className="day-headers" role="row">
+        {DAYS_SHORT.map((d,i) => (
+          <div key={d} className={`day-header${i>=5?' wknd':''}`} role="columnheader">{d}</div>
+        ))}
+      </div>
+
+      {/* Days */}
+      <div className="days-grid" role="grid">
+        {cells.map((cell, idx) => {
+          const col = idx % 7;
+          const isWknd  = col===5 || col===6;
+          const isToday = cell.key===todayKey && !cell.dim;
+          const isStart = cell.key===rangeStart && !cell.dim;
+          const isEnd   = cell.key===rangeEnd && !cell.dim;
+          const isHover = rangeStart && !rangeEnd && cell.key===hoverDate && !cell.dim;
+          const inRange = !cell.dim && effEnd && rangeStart && isBetween(cell.key, rangeStart, effEnd);
+          const inHover = !cell.dim && !rangeEnd && hoverDate && rangeStart &&
+                          isBetween(cell.key, rangeStart, hoverDate) && !inRange;
+          const hol     = cell.dim ? null : getHoliday(cell.key);
+
+          const cls = [
+            'day-cell',
+            cell.dim  ? 'dimmed'       : '',
+            isToday && !isStart && !isEnd ? 'today' : '',
+            isStart   ? 'start-date'   : '',
+            (isEnd || isHover) ? 'end-date' : '',
+            inRange   ? 'in-range'     : '',
+            inHover   ? 'hover-in-range':'',
+            (!isStart && !isEnd && !inRange && !inHover && isWknd && !cell.dim) ? 'wknd-day':'',
+          ].filter(Boolean).join(' ');
+
+          return (
+            <div
+              key={`${cell.key}-${idx}`}
+              id={cell.dim ? undefined : `day-${cell.key}`}
+              className={cls}
+              role={cell.dim ? 'presentation' : 'gridcell'}
+              aria-label={cell.dim ? undefined : `${cell.day} ${MONTHS[month]}${hol?`, ${hol}`:''}`}
+              aria-selected={isStart || isEnd ? 'true' : undefined}
+              onClick={() => !cell.dim && onDateClick(cell.key)}
+              onMouseEnter={() => !cell.dim && onDateHover(cell.key)}
+              onMouseLeave={() => onDateHover(null)}
+            >
+              {cell.day}
+              {hol && !cell.dim && (
+                <>
+                  <span className="holiday-dot" aria-hidden="true" />
+                  <span className="hol-tooltip">{hol}</span>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   ROOT CALENDAR
+───────────────────────────────────────────────────── */
+function Calendar() {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth());
+  const [year,  setYear]  = useState(now.getFullYear());
+  const [rangeStart, setRangeStart] = useState(null);
+  const [rangeEnd,   setRangeEnd]   = useState(null);
+  const [hoverDate,  setHoverDate]  = useState(null);
+  const [phase, setPhase] = useState('idle'); // 'idle' | 'out' | 'in'
+  const [dark, setDark] = useState(() => ls('cal-dark','0')==='1');
+  const pendingNav = useRef(null);
+
+  // Apply theme + accent CSS vars
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    lsSet('cal-dark', dark ? '1' : '0');
+  }, [dark]);
+
+  useEffect(() => {
+    const a = MONTH_ACCENTS[month];
+    document.documentElement.style.setProperty('--accent',     a.c);
+    document.documentElement.style.setProperty('--accent-light', a.l);
+    // Derive RGB from hex
+    const r = parseInt(a.c.slice(1,3),16);
+    const g = parseInt(a.c.slice(3,5),16);
+    const b = parseInt(a.c.slice(5,7),16);
+    document.documentElement.style.setProperty('--accent-rgb', `${r},${g},${b}`);
+    document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.32)`);
+    document.documentElement.style.setProperty('--accent-muted', `rgba(${r},${g},${b},0.13)`);
+  }, [month]);
+
+  function navigate(dir) {
+    if (phase !== 'idle') return;
+    pendingNav.current = dir;
+    setPhase('out');
+    setTimeout(() => {
+      setMonth(m => {
+        const next = m + dir;
+        if (next < 0)  { setYear(y=>y-1); return 11; }
+        if (next > 11) { setYear(y=>y+1); return 0; }
+        return next;
+      });
+      setRangeStart(null); setRangeEnd(null); setHoverDate(null);
+      setPhase('in');
+      setTimeout(() => setPhase('idle'), 290);
+    }, 280);
+  }
+
+  function handleDateClick(key) {
+    if (!rangeStart || (rangeStart && rangeEnd)) {
+      setRangeStart(key); setRangeEnd(null);
+    } else {
+      const sMs = keyToMs(rangeStart), eMs = keyToMs(key);
+      if (eMs < sMs) { setRangeStart(key); setRangeEnd(rangeStart); }
+      else { setRangeEnd(key); }
+    }
+  }
+
+  function clearSelection() { setRangeStart(null); setRangeEnd(null); setHoverDate(null); }
+
+  const accent = MONTH_ACCENTS[month];
+  const cardCls = `calendar-card${phase==='out' ? ' flipping-out' : phase==='in' ? ' flipping-in' : ''}`;
+  const rangeLabel = formatRange(rangeStart, rangeEnd);
+
+  // Status message
+  let statusContent = null;
+  if (!rangeStart) {
+    statusContent = (
+      <div className="status-pill">
+        <span className="dot" />
+        Click any date to begin selection
+      </div>
+    );
+  } else if (rangeStart && !rangeEnd) {
+    statusContent = (
+      <>
+        <div className="status-pill">
+          <span className="dot" />
+          Hover & click to set end date
+        </div>
+        <button id="btn-clear-inline" className="clear-pill" onClick={clearSelection}>✕ Cancel</button>
+      </>
+    );
+  } else {
+    statusContent = (
+      <>
+        <div className="status-pill">
+          📅 <strong>{rangeLabel}</strong> selected
+        </div>
+        <button id="btn-clear" className="clear-pill" onClick={clearSelection}>✕ Clear</button>
+      </>
+    );
+  }
+
+  return (
+    <div style={{ width:'100%', maxWidth:900, display:'flex', flexDirection:'column', alignItems:'center' }}>
+
+      {/* Page heading */}
+      <div className="page-header">
+        <h1>Wall Calendar</h1>
+        <p>Select a date range · Add notes · Navigate months</p>
+      </div>
+
+      {/* Toolbar */}
+      <div className="toolbar">
+        <button
+          id="btn-theme"
+          className={`toolbar-btn${dark ? ' active' : ''}`}
+          onClick={() => setDark(d => !d)}
+        >
+          {dark ? '☀️ Light Mode' : '🌙 Dark Mode'}
+        </button>
+        <button
+          id="btn-today"
+          className="toolbar-btn"
+          onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }}
+        >
+          📍 Today
+        </button>
+        {rangeStart && (
+          <button id="btn-clear-toolbar" className="toolbar-btn" onClick={clearSelection}>
+            ✕ Clear Selection
+          </button>
+        )}
+      </div>
+
+      {/* Calendar card */}
+      <div className="calendar-perspective" style={{ width:'100%' }}>
+        <article className={cardCls} aria-label={`${MONTHS[month]} ${year} calendar`}>
+          <SpiralBar />
+          <HeroSection
+            month={month}
+            year={year}
+            accent={accent}
+            onPrev={() => navigate(-1)}
+            onNext={() => navigate(1)}
+          />
+          <div className="lower-section">
+            <NotesPanel
+              year={year}
+              month={month}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onClear={clearSelection}
+            />
+            <DateGrid
+              year={year}
+              month={month}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              hoverDate={hoverDate}
+              onDateClick={handleDateClick}
+              onDateHover={setHoverDate}
+            />
+          </div>
+          <div className="accent-stripe" />
+        </article>
+
+        {/* Status bar */}
+        <div className="status-bar" role="status" aria-live="polite">
+          {statusContent}
+        </div>
+
+        {/* Holiday legend */}
+        <div className="legend-row">
+          <span className="legend-dot" aria-hidden="true"></span>
+          Holiday — hover a dotted date to see details · Notes auto-save per month
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   MOUNT
+───────────────────────────────────────────────────── */
+ReactDOM.createRoot(document.getElementById('app-root')).render(<Calendar />);
+</script>
+</body>
+</html>
